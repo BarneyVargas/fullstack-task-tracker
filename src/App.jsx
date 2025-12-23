@@ -85,15 +85,12 @@ export default function App() {
     else setTasks([]);
   }, [user?.id]);
 
-  // FIX 2: Use correct field name "created_at" and apply filters/sorting properly
   const visibleTasks = useMemo(() => {
     let list = [...tasks];
 
-    // Status filter
     if (statusFilter === "open") list = list.filter((t) => !t.completed);
     if (statusFilter === "done") list = list.filter((t) => t.completed);
 
-    // Sorting
     if (sortOrder === "newest")
       list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     if (sortOrder === "oldest")
@@ -115,11 +112,10 @@ export default function App() {
       const { data, error } = await supabase
         .from("tasks")
         .insert([{ user_id: user.id, title: trimmed, completed: false }])
-        .select(); // return the inserted row
+        .select();
 
       if (error) throw error;
 
-      // FIX 3: Optimistic update - no full reload
       setTasks((prev) => [data[0], ...prev]);
       setTitle("");
     } catch (e) {
@@ -130,7 +126,6 @@ export default function App() {
   const toggleTask = async (task) => {
     setMsg("");
     try {
-      // Optimistic UI update
       setTasks((prev) =>
         prev.map((t) =>
           t.id === task.id ? { ...t, completed: !t.completed } : t
@@ -145,7 +140,6 @@ export default function App() {
       if (error) throw error;
     } catch (e) {
       setMsg(e?.message || "Failed to toggle task.");
-      // Revert on error
       loadTasks();
     }
   };
@@ -153,14 +147,13 @@ export default function App() {
   const deleteTask = async (taskId) => {
     setMsg("");
     try {
-      // Optimistic delete
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
 
       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
       if (error) throw error;
     } catch (e) {
       setMsg(e?.message || "Failed to delete task.");
-      loadTasks(); // revert
+      loadTasks();
     }
   };
 
@@ -170,7 +163,6 @@ export default function App() {
 
     setMsg("");
     try {
-      // Optimistic update
       setTasks((prev) =>
         prev.map((t) => (t.id === taskId ? { ...t, title: trimmed } : t))
       );
@@ -187,7 +179,6 @@ export default function App() {
     }
   };
 
-  // FIX 1: Actually delete all tasks from DB
   const clearAllTasks = async () => {
     setMsg("");
     try {
@@ -269,7 +260,7 @@ export default function App() {
                 </Select>
 
                 <Select value={sortOrder} onValueChange={setSortOrder}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-45">
                     <SelectValue placeholder="Sort" />
                   </SelectTrigger>
                   <SelectContent>
@@ -316,7 +307,6 @@ export default function App() {
                   : "No tasks match your filter."}
               </p>
             ) : (
-              // FIX 2: Pass visibleTasks, not raw tasks
               <TaskList
                 tasks={visibleTasks}
                 onToggle={toggleTask}
