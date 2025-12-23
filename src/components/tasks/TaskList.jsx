@@ -1,10 +1,13 @@
+import { memo } from "react";
 import TaskItem from "./TaskItem";
+
+const TaskItemMemo = memo(TaskItem);
 
 export default function TaskList({ tasks, onToggle, onDelete, onEditTitle }) {
   return (
     <div className="space-y-3">
       {tasks.map((task) => (
-        <TaskItem
+        <TaskItemMemo
           key={task.id}
           task={task}
           onToggle={onToggle}
