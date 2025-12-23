@@ -18,10 +18,6 @@ A full-stack task management app built with React (Vite), Express.js, and Supaba
 2. Backend: `cd server`, `npm install`, add .env, `npm start`
 3. Frontend: `cd client`, `npm install`, `npm run dev`
 
-## Live Demo
-
-[Frontend](https://your-frontend.vercel.app) | [Backend API](https://your-backend.vercel.app/tasks)
-
 ## Team
 
 Solo project.

@@ -1,114 +1,141 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function LoginCard() {
-  const [mode, setMode] = useState("signin");
+  const [mode, setMode] = useState("signin"); // signin | signup
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
-  const [err, setErr] = useState("");
 
   const submit = async (e) => {
     e.preventDefault();
-    setErr("");
     setMsg("");
 
-    if (!email || !password) return;
+    if (!email || !password) {
+      setMsg("Please enter an email and password.");
+      return;
+    }
 
     try {
       setLoading(true);
 
-      if (mode === "signin") {
+      if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+        if (error) throw error;
+
+        setMsg("Account created. Check your email to confirm.");
+      } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
-      } else {
-        // signup
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-
-        setMsg(
-          "Account created. Check your email to confirm (if confirmation is enabled), then sign in."
-        );
-        setMode("signin");
       }
-    } catch (e2) {
-      setErr(e2?.message || "Something went wrong.");
+    } catch (err) {
+      setMsg(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-2">
+        <CardHeader>
           <CardTitle>
-            {mode === "signin" ? "Sign in" : "Create account"}
+            {mode === "signup" ? "Create an account" : "Login to your account"}
           </CardTitle>
 
-          <div className="flex gap-2">
+          <CardDescription>
+            {mode === "signup"
+              ? "Enter your email below to create your account"
+              : "Enter your email below to login to your account"}
+          </CardDescription>
+
+          <CardAction>
             <Button
+              variant="link"
               type="button"
-              variant={mode === "signin" ? "default" : "outline"}
-              className="w-full"
-              onClick={() => setMode("signin")}
+              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
             >
-              Sign in
+              {mode === "signin" ? "Sign Up" : "Sign In"}
             </Button>
-            <Button
-              type="button"
-              variant={mode === "signup" ? "default" : "outline"}
-              className="w-full"
-              onClick={() => setMode("signup")}
-            >
-              Sign up
-            </Button>
-          </div>
+          </CardAction>
         </CardHeader>
 
         <CardContent>
-          <form onSubmit={submit} className="space-y-4">
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
+          <form onSubmit={submit}>
+            <div className="flex flex-col gap-6">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  required
+                />
+              </div>
 
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={
-                mode === "signin" ? "current-password" : "new-password"
-              }
-            />
+              <div className="grid gap-2">
+                <div className="flex items-center">
+                  <Label htmlFor="password">Password</Label>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete={
+                    mode === "signup" ? "new-password" : "current-password"
+                  }
+                  required
+                />
+              </div>
 
-            {err ? <p className="text-sm text-destructive">{err}</p> : null}
-            {msg ? (
-              <p className="text-sm text-muted-foreground">{msg}</p>
-            ) : null}
-
-            <Button className="w-full" disabled={loading}>
-              {loading
-                ? "Please wait..."
-                : mode === "signin"
-                ? "Sign in"
-                : "Create account"}
-            </Button>
+              {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
+            </div>
           </form>
         </CardContent>
+
+        <CardFooter className="flex-col gap-2">
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loading}
+            onClick={submit}
+          >
+            {loading
+              ? "Please wait..."
+              : mode === "signup"
+              ? "Create account"
+              : "Login"}
+          </Button>
+
+          {/* Optional: social login placeholder */}
+          <Button variant="outline" className="w-full" disabled>
+            Login with Google
+          </Button>
+        </CardFooter>
       </Card>
     </div>
   );

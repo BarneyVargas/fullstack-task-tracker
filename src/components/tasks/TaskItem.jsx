@@ -15,66 +15,63 @@ export default function TaskItem({ task, onToggle, onDelete, onEditTitle }) {
   const save = async () => {
     const trimmed = draft.trim();
     if (!trimmed) return;
+
     await onEditTitle(task.id, trimmed);
     setEditing(false);
   };
 
-  const cancel = () => {
-    setDraft(task.title);
-    setEditing(false);
-  };
-
   return (
-    <div className="flex items-center justify-between rounded-md border p-3">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+    <div className="flex items-center justify-between gap-3 rounded-lg border p-3">
+      <div className="flex items-center gap-3 min-w-0">
         <Checkbox
           checked={task.completed}
-          onCheckedChange={() => onToggle(task.id)}
+          onCheckedChange={() => onToggle(task)}
         />
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0">
           {editing ? (
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <Input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") save();
-                  if (e.key === "Escape") cancel();
+                  if (e.key === "Escape") {
+                    setDraft(task.title);
+                    setEditing(false);
+                  }
                 }}
-                autoFocus
               />
               <Button size="sm" onClick={save}>
                 Save
               </Button>
-              <Button size="sm" variant="outline" onClick={cancel}>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setDraft(task.title);
+                  setEditing(false);
+                }}
+              >
                 Cancel
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <span
-                className={
-                  task.completed
-                    ? "truncate line-through opacity-60"
-                    : "truncate"
-                }
-              >
-                {task.title}
-              </span>
-              {task.completed ? (
-                <Badge variant="secondary">Done</Badge>
-              ) : (
-                <Badge variant="outline">Open</Badge>
-              )}
+            <div className="flex items-center gap-2 min-w-0">
+              <p className="truncate">{task.title}</p>
+              {task.completed ? <Badge variant="secondary">Done</Badge> : null}
             </div>
           )}
         </div>
       </div>
 
-      {!editing && (
-        <div className="ml-3 flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+      {!editing ? (
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setEditing(true)}
+          >
             Edit
           </Button>
           <Button
@@ -85,7 +82,7 @@ export default function TaskItem({ task, onToggle, onDelete, onEditTitle }) {
             Delete
           </Button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
