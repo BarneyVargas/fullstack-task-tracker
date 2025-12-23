@@ -1,12 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
+import { ModeToggle } from "@/components/mode-toggle";
 import LoginCard from "./components/auth/LoginCard";
 import TaskList from "./components/tasks/TaskList";
 import { supabase } from "./lib/supabaseClient";
-
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -17,7 +35,9 @@ export default function App() {
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [msg, setMsg] = useState("");
 
-  // auth session bootstrap + listener
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("newest");
+
   useEffect(() => {
     let ignore = false;
 
@@ -63,8 +83,26 @@ export default function App() {
   useEffect(() => {
     if (user) loadTasks();
     else setTasks([]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // FIX 2: Use correct field name "created_at" and apply filters/sorting properly
+  const visibleTasks = useMemo(() => {
+    let list = [...tasks];
+
+    // Status filter
+    if (statusFilter === "open") list = list.filter((t) => !t.completed);
+    if (statusFilter === "done") list = list.filter((t) => t.completed);
+
+    // Sorting
+    if (sortOrder === "newest")
+      list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    if (sortOrder === "oldest")
+      list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    if (sortOrder === "az") list.sort((a, b) => a.title.localeCompare(b.title));
+    if (sortOrder === "za") list.sort((a, b) => b.title.localeCompare(a.title));
+
+    return list;
+  }, [tasks, statusFilter, sortOrder]);
 
   const addTask = async (e) => {
     e.preventDefault();
@@ -74,58 +112,100 @@ export default function App() {
     if (!trimmed || !user) return;
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("tasks")
-        .insert([{ user_id: user.id, title: trimmed, completed: false }]);
+        .insert([{ user_id: user.id, title: trimmed, completed: false }])
+        .select(); // return the inserted row
 
       if (error) throw error;
 
+      // FIX 3: Optimistic update - no full reload
+      setTasks((prev) => [data[0], ...prev]);
       setTitle("");
-      await loadTasks();
-    } catch (e2) {
-      setMsg(e2?.message || "Failed to create task.");
+    } catch (e) {
+      setMsg(e?.message || "Failed to create task.");
     }
   };
 
   const toggleTask = async (task) => {
     setMsg("");
     try {
+      // Optimistic UI update
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id ? { ...t, completed: !t.completed } : t
+        )
+      );
+
       const { error } = await supabase
         .from("tasks")
         .update({ completed: !task.completed })
         .eq("id", task.id);
 
       if (error) throw error;
-      await loadTasks();
     } catch (e) {
       setMsg(e?.message || "Failed to toggle task.");
+      // Revert on error
+      loadTasks();
     }
   };
 
   const deleteTask = async (taskId) => {
     setMsg("");
     try {
+      // Optimistic delete
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+
       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
       if (error) throw error;
-      await loadTasks();
     } catch (e) {
       setMsg(e?.message || "Failed to delete task.");
+      loadTasks(); // revert
     }
   };
 
   const editTitle = async (taskId, newTitle) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+
+    setMsg("");
+    try {
+      // Optimistic update
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, title: trimmed } : t))
+      );
+
+      const { error } = await supabase
+        .from("tasks")
+        .update({ title: trimmed })
+        .eq("id", taskId);
+
+      if (error) throw error;
+    } catch (e) {
+      setMsg(e?.message || "Failed to update task.");
+      loadTasks();
+    }
+  };
+
+  // FIX 1: Actually delete all tasks from DB
+  const clearAllTasks = async () => {
     setMsg("");
     try {
       const { error } = await supabase
         .from("tasks")
-        .update({ title: newTitle })
-        .eq("id", taskId);
-
+        .delete()
+        .eq("user_id", user.id);
       if (error) throw error;
-      await loadTasks();
+
+      setTasks([]);
     } catch (e) {
-      setMsg(e?.message || "Failed to update task.");
+      setMsg(e?.message || "Failed to clear tasks.");
+      loadTasks();
     }
+  };
+
+  const onClearAll = async () => {
+    await clearAllTasks();
   };
 
   const signOut = async () => {
@@ -134,605 +214,121 @@ export default function App() {
 
   if (!session) return <LoginCard />;
 
-  const completedCount = tasks.filter((t) => t.completed).length;
-
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="mx-auto max-w-2xl space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <h1 className="text-xl font-semibold">Task Tracker</h1>
-            <p className="text-sm opacity-70 truncate">{user?.email}</p>
-          </div>
-          <Button variant="secondary" onClick={signOut}>
-            Sign out
-          </Button>
-        </div>
-
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="absolute top-6 right-6 flex items-center gap-3">
+        <Button variant="outline" size="sm" onClick={signOut}>
+          Logout
+        </Button>
+        <ModeToggle />
+      </div>
+      <div className="mx-auto max-w-2xl p-6 pt-20">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Your Tasks</CardTitle>
-            <Badge variant="secondary">
-              {completedCount}/{tasks.length} done
-            </Badge>
+          <CardHeader className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-1">
+                <CardTitle className="text-xl">Task Tracker</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Signed in as {user.email}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className="rounded" variant="outline">
+                  Total: {tasks.length}
+                </Badge>
+                <Badge className="rounded" variant="outline">
+                  Open: {tasks.filter((t) => !t.completed).length}
+                </Badge>
+                <Badge className="rounded" variant="secondary">
+                  Done: {tasks.filter((t) => t.completed).length}
+                </Badge>
+              </div>
+            </div>
           </CardHeader>
-
           <CardContent className="space-y-4">
             <form onSubmit={addTask} className="flex gap-2">
               <Input
-                placeholder="Add a task..."
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                placeholder="Add a new task..."
               />
               <Button type="submit">Add</Button>
             </form>
 
-            {msg ? <p className="text-sm opacity-80">{msg}</p> : null}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex gap-2">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="done">Done</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={sortOrder} onValueChange={setSortOrder}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest first</SelectItem>
+                    <SelectItem value="oldest">Oldest first</SelectItem>
+                    <SelectItem value="az">Title (A → Z)</SelectItem>
+                    <SelectItem value="za">Title (Z → A)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {tasks.length > 0 && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Clear All
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Clear all tasks?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently remove {tasks.length} task
+                        {tasks.length === 1 ? "" : "s"}.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={onClearAll}>
+                        Yes, clear
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
 
             {loadingTasks ? (
-              <p className="text-sm opacity-70">Loading...</p>
-            ) : tasks.length === 0 ? (
-              <p className="text-sm opacity-70">No tasks yet.</p>
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : visibleTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {tasks.length === 0
+                  ? "No tasks yet. Add one above!"
+                  : "No tasks match your filter."}
+              </p>
             ) : (
+              // FIX 2: Pass visibleTasks, not raw tasks
               <TaskList
-                tasks={tasks}
+                tasks={visibleTasks}
                 onToggle={toggleTask}
                 onDelete={deleteTask}
                 onEditTitle={editTitle}
               />
             )}
+
+            {msg && <p className="text-sm text-destructive">{msg}</p>}
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-
-// import { useEffect, useMemo, useState } from "react";
-// import LoginCard from "./components/auth/LoginCard";
-// import TaskList from "./components/tasks/TaskList";
-// import { supabase } from "./lib/supabaseClient";
-
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Badge } from "@/components/ui/badge";
-
-// export default function App() {
-//   const [session, setSession] = useState(null);
-//   const user = useMemo(() => session?.user ?? null, [session]);
-
-//   const [tasks, setTasks] = useState([]);
-//   const [title, setTitle] = useState("");
-//   const [loadingTasks, setLoadingTasks] = useState(false);
-//   const [msg, setMsg] = useState("");
-
-//   // auth session bootstrap + listener
-//   useEffect(() => {
-//     let ignore = false;
-
-//     (async () => {
-//       const { data } = await supabase.auth.getSession();
-//       if (!ignore) setSession(data.session ?? null);
-//     })();
-
-//     const { data: sub } = supabase.auth.onAuthStateChange(
-//       (_event, newSession) => {
-//         setSession(newSession ?? null);
-//       }
-//     );
-
-//     return () => {
-//       ignore = true;
-//       sub.subscription.unsubscribe();
-//     };
-//   }, []);
-
-//   const loadTasks = async () => {
-//     if (!user) return;
-//     setMsg("");
-//     setLoadingTasks(true);
-//     try {
-//       const { data, error } = await supabase
-//         .from("tasks")
-//         .select("*")
-//         .eq("user_id", user.id)
-//         .order("created_at", { ascending: false });
-
-//       if (error) throw error;
-//       setTasks(data ?? []);
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to load tasks.");
-//     } finally {
-//       setLoadingTasks(false);
-//     }
-//   };
-
-//   useEffect(() => {
-//     if (user) loadTasks();
-//     else setTasks([]);
-//     // eslint-disable-next-line react-hooks/exhaustive-deps
-//   }, [user?.id]);
-
-//   const addTask = async (e) => {
-//     e.preventDefault();
-//     setMsg("");
-
-//     const trimmed = title.trim();
-//     if (!trimmed || !user) return;
-
-//     try {
-//       const { error } = await supabase
-//         .from("tasks")
-//         .insert([{ user_id: user.id, title: trimmed, completed: false }]);
-//       if (error) throw error;
-
-//       setTitle("");
-//       await loadTasks();
-//     } catch (e2) {
-//       setMsg(e2?.message || "Failed to create task.");
-//     }
-//   };
-
-//   const toggleTask = async (task) => {
-//     setMsg("");
-//     try {
-//       const { error } = await supabase
-//         .from("tasks")
-//         .update({ completed: !task.completed })
-//         .eq("id", task.id);
-
-//       if (error) throw error;
-//       await loadTasks();
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to toggle task.");
-//     }
-//   };
-
-//   const deleteTask = async (taskId) => {
-//     setMsg("");
-//     try {
-//       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-//       if (error) throw error;
-//       await loadTasks();
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to delete task.");
-//     }
-//   };
-
-//   const editTitle = async (taskId, newTitle) => {
-//     setMsg("");
-//     try {
-//       const { error } = await supabase
-//         .from("tasks")
-//         .update({ title: newTitle })
-//         .eq("id", taskId);
-
-//       if (error) throw error;
-//       await loadTasks();
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to update task.");
-//     }
-//   };
-
-//   const signOut = async () => {
-//     await supabase.auth.signOut();
-//   };
-
-//   if (!session) return <LoginCard />;
-
-//   const completedCount = tasks.filter((t) => t.completed).length;
-
-//   return (
-//     <div className="min-h-screen bg-background p-4">
-//       <div className="mx-auto max-w-2xl space-y-4">
-//         <div className="flex items-center justify-between gap-2">
-//           <div className="min-w-0">
-//             <h1 className="text-xl font-semibold">Task Tracker</h1>
-//             <p className="text-sm opacity-70 truncate">{user?.email}</p>
-//           </div>
-//           <Button variant="secondary" onClick={signOut}>
-//             Sign out
-//           </Button>
-//         </div>
-
-//         <Card>
-//           <CardHeader className="flex flex-row items-center justify-between">
-//             <CardTitle>Your Tasks</CardTitle>
-//             <Badge variant="secondary">
-//               {completedCount}/{tasks.length} done
-//             </Badge>
-//           </CardHeader>
-
-//           <CardContent className="space-y-4">
-//             <form onSubmit={addTask} className="flex gap-2">
-//               <Input
-//                 placeholder="Add a task..."
-//                 value={title}
-//                 onChange={(e) => setTitle(e.target.value)}
-//               />
-//               <Button type="submit">Add</Button>
-//             </form>
-
-//             {msg ? <p className="text-sm opacity-80">{msg}</p> : null}
-
-//             {loadingTasks ? (
-//               <p className="text-sm opacity-70">Loading...</p>
-//             ) : tasks.length === 0 ? (
-//               <p className="text-sm opacity-70">No tasks yet.</p>
-//             ) : (
-//               <TaskList
-//                 tasks={tasks}
-//                 onToggle={toggleTask}
-//                 onDelete={deleteTask}
-//                 onEditTitle={editTitle}
-//               />
-//             )}
-//           </CardContent>
-//         </Card>
-//       </div>
-//     </div>
-//   );
-// }
-
-// import { useEffect, useMemo, useState } from "react";
-// import LoginCard from "@/components/auth/LoginCard";
-// import TaskList from "@/components/tasks/TaskList";
-// import { supabase } from "@/lib/supabaseClient";
-
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Badge } from "@/components/ui/badge";
-
-// export default function App() {
-//   const [session, setSession] = useState(null);
-//   const user = useMemo(() => session?.user ?? null, [session]);
-
-//   const [tasks, setTasks] = useState([]);
-//   const [title, setTitle] = useState("");
-//   const [loadingTasks, setLoadingTasks] = useState(false);
-//   const [msg, setMsg] = useState("");
-
-//   // auth session bootstrap + listener
-//   useEffect(() => {
-//     let ignore = false;
-
-//     (async () => {
-//       const { data } = await supabase.auth.getSession();
-//       if (!ignore) setSession(data.session ?? null);
-//     })();
-
-//     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-//       setSession(newSession ?? null);
-//     });
-
-//     return () => {
-//       ignore = true;
-//       sub.subscription.unsubscribe();
-//     };
-//   }, []);
-
-//   const loadTasks = async () => {
-//     if (!user) return;
-//     setMsg("");
-//     setLoadingTasks(true);
-//     try {
-//       const { data, error } = await supabase
-//         .from("tasks")
-//         .select("*")
-//         .eq("user_id", user.id)
-//         .order("created_at", { ascending: false });
-
-//       if (error) throw error;
-//       setTasks(data ?? []);
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to load tasks.");
-//     } finally {
-//       setLoadingTasks(false);
-//     }
-//   };
-
-//   useEffect(() => {
-//     if (user) loadTasks();
-//     else setTasks([]);
-//     // eslint-disable-next-line react-hooks/exhaustive-deps
-//   }, [user?.id]);
-
-//   const addTask = async (e) => {
-//     e.preventDefault();
-//     setMsg("");
-
-//     const trimmed = title.trim();
-//     if (!trimmed || !user) return;
-
-//     try {
-//       const { error } = await supabase.from("tasks").insert([
-//         { user_id: user.id, title: trimmed, completed: false },
-//       ]);
-//       if (error) throw error;
-
-//       setTitle("");
-//       await loadTasks();
-//     } catch (e2) {
-//       setMsg(e2?.message || "Failed to create task.");
-//     }
-//   };
-
-//   const toggleTask = async (task) => {
-//     setMsg("");
-//     try {
-//       const { error } = await supabase
-//         .from("tasks")
-//         .update({ completed: !task.completed })
-//         .eq("id", task.id);
-
-//       if (error) throw error;
-//       await loadTasks();
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to toggle task.");
-//     }
-//   };
-
-//   const deleteTask = async (taskId) => {
-//     setMsg("");
-//     try {
-//       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-//       if (error) throw error;
-//       await loadTasks();
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to delete task.");
-//     }
-//   };
-
-//   const editTitle = async (taskId, newTitle) => {
-//     setMsg("");
-//     try {
-//       const { error } = await supabase
-//         .from("tasks")
-//         .update({ title: newTitle })
-//         .eq("id", taskId);
-
-//       if (error) throw error;
-//       await loadTasks();
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to update task.");
-//     }
-//   };
-
-//   const signOut = async () => {
-//     await supabase.auth.signOut();
-//   };
-
-//   if (!session) return <LoginCard />;
-
-//   const completedCount = tasks.filter((t) => t.completed).length;
-
-//   return (
-//     <div className="min-h-screen bg-background p-4">
-//       <div className="mx-auto max-w-2xl space-y-4">
-//         <div className="flex items-center justify-between gap-2">
-//           <div className="min-w-0">
-//             <h1 className="text-xl font-semibold">Task Tracker</h1>
-//             <p className="text-sm opacity-70 truncate">{user?.email}</p>
-//           </div>
-//           <Button variant="secondary" onClick={signOut}>
-//             Sign out
-//           </Button>
-//         </div>
-
-//         <Card>
-//           <CardHeader className="flex flex-row items-center justify-between">
-//             <CardTitle>Your Tasks</CardTitle>
-//             <Badge variant="secondary">
-//               {completedCount}/{tasks.length} done
-//             </Badge>
-//           </CardHeader>
-
-//           <CardContent className="space-y-4">
-//             <form onSubmit={addTask} className="flex gap-2">
-//               <Input
-//                 placeholder="Add a task..."
-//                 value={title}
-//                 onChange={(e) => setTitle(e.target.value)}
-//               />
-//               <Button type="submit">Add</Button>
-//             </form>
-
-//             {msg ? <p className="text-sm opacity-80">{msg}</p> : null}
-
-//             {loadingTasks ? (
-//               <p className="text-sm opacity-70">Loading...</p>
-//             ) : tasks.length === 0 ? (
-//               <p className="text-sm opacity-70">No tasks yet.</p>
-//             ) : (
-//               <TaskList
-//                 tasks={tasks}
-//                 onToggle={toggleTask}
-//                 onDelete={deleteTask}
-//                 onEditTitle={editTitle}
-//               />
-//             )}
-//           </CardContent>
-//         </Card>
-//       </div>
-//     </div>
-//   );
-// }
-
-// export default function App() {
-//   const [session, setSession] = useState(null);
-//   const user = useMemo(() => session?.user ?? null, [session]);
-
-//   const [tasks, setTasks] = useState([]);
-//   const [title, setTitle] = useState("");
-//   const [loadingTasks, setLoadingTasks] = useState(false);
-//   const [msg, setMsg] = useState("");
-
-//   // auth session bootstrap + listener
-//   useEffect(() => {
-//     let ignore = false;
-
-//     (async () => {
-//       const { data } = await supabase.auth.getSession();
-//       if (!ignore) setSession(data.session ?? null);
-//     })();
-
-//     const { data: sub } = supabase.auth.onAuthStateChange(
-//       (_event, newSession) => {
-//         setSession(newSession ?? null);
-//       }
-//     );
-
-//     return () => {
-//       ignore = true;
-//       sub.subscription.unsubscribe();
-//     };
-//   }, []);
-
-//   const loadTasks = async () => {
-//     if (!user) return;
-//     setMsg("");
-//     setLoadingTasks(true);
-//     try {
-//       const { data, error } = await supabase
-//         .from("tasks")
-//         .select("*")
-//         .eq("user_id", user.id)
-//         .order("created_at", { ascending: false });
-
-//       if (error) throw error;
-//       setTasks(data ?? []);
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to load tasks.");
-//     } finally {
-//       setLoadingTasks(false);
-//     }
-//   };
-
-//   useEffect(() => {
-//     if (user) loadTasks();
-//     else setTasks([]);
-//     // eslint-disable-next-line react-hooks/exhaustive-deps
-//   }, [user?.id]);
-
-//   const addTask = async (e) => {
-//     e.preventDefault();
-//     setMsg("");
-
-//     const trimmed = title.trim();
-//     if (!trimmed || !user) return;
-
-//     try {
-//       const { error } = await supabase
-//         .from("tasks")
-//         .insert([{ user_id: user.id, title: trimmed, completed: false }]);
-//       if (error) throw error;
-
-//       setTitle("");
-//       await loadTasks();
-//     } catch (e2) {
-//       setMsg(e2?.message || "Failed to create task.");
-//     }
-//   };
-
-//   const toggleTask = async (task) => {
-//     setMsg("");
-//     try {
-//       const { error } = await supabase
-//         .from("tasks")
-//         .update({ completed: !task.completed })
-//         .eq("id", task.id);
-
-//       if (error) throw error;
-//       await loadTasks();
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to toggle task.");
-//     }
-//   };
-
-//   const deleteTask = async (taskId) => {
-//     setMsg("");
-//     try {
-//       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-//       if (error) throw error;
-//       await loadTasks();
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to delete task.");
-//     }
-//   };
-
-//   const editTitle = async (taskId, newTitle) => {
-//     setMsg("");
-//     try {
-//       const { error } = await supabase
-//         .from("tasks")
-//         .update({ title: newTitle })
-//         .eq("id", taskId);
-
-//       if (error) throw error;
-//       await loadTasks();
-//     } catch (e) {
-//       setMsg(e?.message || "Failed to update task.");
-//     }
-//   };
-
-//   const signOut = async () => {
-//     await supabase.auth.signOut();
-//   };
-
-//   if (!session) return <LoginCard />;
-
-//   const completedCount = tasks.filter((t) => t.completed).length;
-
-//   return (
-//     <div className="min-h-screen bg-background p-4">
-//       <div className="mx-auto max-w-2xl space-y-4">
-//         <div className="flex items-center justify-between gap-2">
-//           <div className="min-w-0">
-//             <h1 className="text-xl font-semibold">Task Tracker</h1>
-//             <p className="text-sm opacity-70 truncate">{user?.email}</p>
-//           </div>
-//           <Button variant="secondary" onClick={signOut}>
-//             Sign out
-//           </Button>
-//         </div>
-
-//         <Card>
-//           <CardHeader className="flex flex-row items-center justify-between">
-//             <CardTitle>Your Tasks</CardTitle>
-//             <Badge variant="secondary">
-//               {completedCount}/{tasks.length} done
-//             </Badge>
-//           </CardHeader>
-
-//           <CardContent className="space-y-4">
-//             <form onSubmit={addTask} className="flex gap-2">
-//               <Input
-//                 placeholder="Add a task..."
-//                 value={title}
-//                 onChange={(e) => setTitle(e.target.value)}
-//               />
-//               <Button type="submit">Add</Button>
-//             </form>
-
-//             {msg ? <p className="text-sm opacity-80">{msg}</p> : null}
-
-//             {loadingTasks ? (
-//               <p className="text-sm opacity-70">Loading...</p>
-//             ) : tasks.length === 0 ? (
-//               <p className="text-sm opacity-70">No tasks yet.</p>
-//             ) : (
-//               <TaskList
-//                 tasks={tasks}
-//                 onToggle={toggleTask}
-//                 onDelete={deleteTask}
-//                 onEditTitle={editTitle}
-//               />
-//             )}
-//           </CardContent>
-//         </Card>
-//       </div>
-//     </div>
-//   );
-// }

@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function LoginCard() {
-  const [mode, setMode] = useState("signin"); // signin | signup
+  const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -132,9 +132,9 @@ export default function LoginCard() {
           </Button>
 
           {/* Optional: social login placeholder */}
-          <Button variant="outline" className="w-full" disabled>
+          {/* <Button variant="outline" className="w-full" disabled>
             Login with Google
-          </Button>
+          </Button> */}
         </CardFooter>
       </Card>
     </div>
