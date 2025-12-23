@@ -1,61 +1,71 @@
-const KEY = "tasks_v1";
+const TASKS_KEY = "task_tracker_tasks";
 
-function read() {
+function safeParse(json, fallback) {
   try {
-    return JSON.parse(localStorage.getItem(KEY)) ?? [];
+    const val = JSON.parse(json);
+    return val ?? fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-function write(tasks) {
-  localStorage.setItem(KEY, JSON.stringify(tasks));
+function readTasks() {
+  const raw = localStorage.getItem(TASKS_KEY);
+  const tasks = safeParse(raw, []);
+  return Array.isArray(tasks) ? tasks : [];
+}
+
+function writeTasks(tasks) {
+  localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+}
+
+function makeId() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID)
+    return crypto.randomUUID();
+  return String(Date.now()) + "_" + Math.random().toString(16).slice(2);
 }
 
 export async function getTasks() {
-  return read();
+  return readTasks();
 }
 
 export async function createTask(title) {
-  const tasks = read();
-  const newTask = {
-    id: crypto.randomUUID(),
+  const tasks = readTasks();
+  const task = {
+    id: makeId(),
     title,
     completed: false,
     createdAt: Date.now(),
-    updatedAt: Date.now(),
   };
-  const next = [newTask, ...tasks];
-  write(next);
-  return newTask;
+  const next = [task, ...tasks];
+  writeTasks(next);
+  return task;
 }
 
 export async function toggleTask(id) {
-  const tasks = read();
+  const tasks = readTasks();
   const next = tasks.map((t) =>
-    t.id === id ? { ...t, completed: !t.completed, updatedAt: Date.now() } : t
+    t.id === id ? { ...t, completed: !t.completed } : t
   );
-  write(next);
-  return next;
+  writeTasks(next);
+  return true;
 }
 
 export async function deleteTask(id) {
-  const tasks = read();
+  const tasks = readTasks();
   const next = tasks.filter((t) => t.id !== id);
-  write(next);
-  return next;
-}
-
-export async function updateTaskTitle(id, title) {
-  const tasks = read();
-  const next = tasks.map((t) =>
-    t.id === id ? { ...t, title, updatedAt: Date.now() } : t
-  );
-  write(next);
-  return next;
+  writeTasks(next);
+  return true;
 }
 
 export async function clearAllTasks() {
-  write([]);
-  return [];
+  writeTasks([]);
+  return true;
+}
+
+export async function updateTaskTitle(id, newTitle) {
+  const tasks = readTasks();
+  const next = tasks.map((t) => (t.id === id ? { ...t, title: newTitle } : t));
+  writeTasks(next);
+  return true;
 }

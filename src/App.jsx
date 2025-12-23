@@ -1,228 +1,256 @@
 import { useEffect, useMemo, useState } from "react";
 import { ModeToggle } from "@/components/mode-toggle";
 
+import LoginCard from "@/components/auth/LoginCard";
+import { supabase } from "@/lib/supabaseClient";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-import {
-  getTasks,
-  createTask,
-  toggleTask,
-  deleteTask,
-  clearAllTasks,
-  updateTaskTitle,
-} from "@/lib/tasksApi";
-
-import TaskItem from "@/components/TaskItem";
-
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
 export default function App() {
+  const [session, setSession] = useState(null);
+
   const [tasks, setTasks] = useState([]);
-  const [title, setTitle] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loadingTasks, setLoadingTasks] = useState(false);
 
-  // filter + sort UI state
-  const [statusFilter, setStatusFilter] = useState("all"); // all | open | done
-  const [sortOrder, setSortOrder] = useState("newest"); // newest | oldest | az | za
+  const [newTitle, setNewTitle] = useState("");
+  const [filter, setFilter] = useState("all"); // all | active | done
 
+  // 1) auth listener
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const data = await getTasks();
-      setTasks(data);
-      setLoading(false);
-    })();
+    supabase.auth
+      .getSession()
+      .then(({ data }) => setSession(data.session ?? null));
+
+    const { data: sub } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        setSession(newSession ?? null);
+      }
+    );
+
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  // derived counts
-  const counts = useMemo(() => {
-    const total = tasks.length;
-    const done = tasks.filter((t) => t.completed).length;
-    const open = total - done;
-    return { total, open, done };
-  }, [tasks]);
+  // 2) load tasks whenever session changes
+  useEffect(() => {
+    if (!session?.user) {
+      setTasks([]);
+      return;
+    }
+    loadTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
+
+  const loadTasks = async () => {
+    try {
+      setLoadingTasks(true);
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("id, title, completed, created_at")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setTasks(data ?? []);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  const addTask = async (e) => {
+    e.preventDefault();
+    const title = newTitle.trim();
+    if (!title) return;
+
+    // IMPORTANT:
+    // If you used Option A (uuid id + user_id not null),
+    // you MUST include user_id here OR create a trigger.
+    // We'll include it here to keep it simple.
+    const user_id = session.user.id;
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert([{ title, user_id }])
+      .select("id, title, completed, created_at")
+      .single();
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setTasks((prev) => [data, ...prev]);
+    setNewTitle("");
+  };
+
+  const toggle = async (task) => {
+    const { error } = await supabase
+      .from("tasks")
+      .update({ completed: !task.completed })
+      .eq("id", task.id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === task.id ? { ...t, completed: !t.completed } : t
+      )
+    );
+  };
+
+  const remove = async (task) => {
+    const { error } = await supabase.from("tasks").delete().eq("id", task.id);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setTasks((prev) => prev.filter((t) => t.id !== task.id));
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+  };
 
   const visibleTasks = useMemo(() => {
-    let list = [...tasks];
+    if (filter === "active") return tasks.filter((t) => !t.completed);
+    if (filter === "done") return tasks.filter((t) => t.completed);
+    return tasks;
+  }, [tasks, filter]);
 
-    // filter
-    if (statusFilter === "open") list = list.filter((t) => !t.completed);
-    if (statusFilter === "done") list = list.filter((t) => t.completed);
-
-    // sort
-    if (sortOrder === "newest") list.sort((a, b) => b.createdAt - a.createdAt);
-    if (sortOrder === "oldest") list.sort((a, b) => a.createdAt - b.createdAt);
-    if (sortOrder === "az") list.sort((a, b) => a.title.localeCompare(b.title));
-    if (sortOrder === "za") list.sort((a, b) => b.title.localeCompare(a.title));
-
-    return list;
-  }, [tasks, statusFilter, sortOrder]);
-
-  const onAdd = async (e) => {
-    e.preventDefault();
-    const trimmed = title.trim();
-    if (!trimmed) return;
-
-    const newTask = await createTask(trimmed);
-    setTasks((prev) => [newTask, ...prev]); // instant UI update
-    setTitle("");
-  };
-
-  const onToggle = async (id) => {
-    // optimistic update first
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+  if (!session?.user) {
+    return (
+      <div>
+        <div className="absolute top-4 right-4">
+          <ModeToggle />
+        </div>
+        <LoginCard />
+      </div>
     );
+  }
 
-    // persist
-    await toggleTask(id);
-  };
-
-  const onDelete = async (id) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-    await deleteTask(id);
-  };
-
-  const onEditTitle = async (id, newTitle) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, title: newTitle } : t))
-    );
-    await updateTaskTitle(id, newTitle);
-  };
-
-  const onClearAll = async () => {
-    setTasks([]); // instant UI update
-    await clearAllTasks();
-  };
+  const doneCount = tasks.filter((t) => t.completed).length;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="absolute top-6 right-6">
-        <ModeToggle />
-      </div>
-
-      <div className="mx-auto max-w-xl p-6 pt-20">
-        <Card>
-          <CardHeader className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle>Task Tracker</CardTitle>
-
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">Total: {counts.total}</Badge>
-                <Badge variant="outline">Open: {counts.open}</Badge>
-                <Badge variant="secondary">Done: {counts.done}</Badge>
-              </div>
-            </div>
-
-            <p className="text-sm opacity-70">
-              Frontend-only mock (localStorage). No server, no database.
+    <div className="min-h-screen bg-background">
+      <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold">Task Tracker</h1>
+            <p className="text-sm text-muted-foreground">
+              Signed in as{" "}
+              <span className="font-medium">{session.user.email}</span>
             </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <ModeToggle />
+            <Button variant="outline" onClick={logout}>
+              Log out
+            </Button>
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              Tasks{" "}
+              <Badge variant="secondary">
+                {doneCount}/{tasks.length}
+              </Badge>
+            </CardTitle>
+
+            <div className="flex gap-2">
+              <Button
+                variant={filter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilter("all")}
+              >
+                All
+              </Button>
+              <Button
+                variant={filter === "active" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilter("active")}
+              >
+                Active
+              </Button>
+              <Button
+                variant={filter === "done" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilter("done")}
+              >
+                Done
+              </Button>
+            </div>
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <form onSubmit={onAdd} className="flex gap-2">
+            <form onSubmit={addTask} className="flex gap-2">
               <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Add a new task..."
+                placeholder="Add a task..."
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
               />
               <Button type="submit">Add</Button>
             </form>
 
-            {/* Filter + Sort row */}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex gap-2">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="done">Done</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={sortOrder} onValueChange={setSortOrder}>
-                  <SelectTrigger className="w-45">
-                    <SelectValue placeholder="Sort" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest first</SelectItem>
-                    <SelectItem value="oldest">Oldest first</SelectItem>
-                    <SelectItem value="az">Title (A → Z)</SelectItem>
-                    <SelectItem value="za">Title (Z → A)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Clear All: ONLY show dialog trigger if there are tasks */}
-              {tasks.length > 0 && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      Clear All
-                    </Button>
-                  </AlertDialogTrigger>
-
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Clear all tasks?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently remove {tasks.length} task
-                        {tasks.length === 1 ? "" : "s"} from the list.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={onClearAll} className="">
-                        Yes, clear
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-
-            {loading ? (
-              <p className="text-sm opacity-70">Loading…</p>
+            {loadingTasks ? (
+              <p className="text-sm text-muted-foreground">Loading tasks...</p>
             ) : visibleTasks.length === 0 ? (
-              <p className="text-sm opacity-70">No tasks match your filter.</p>
+              <p className="text-sm text-muted-foreground">No tasks yet.</p>
             ) : (
               <div className="space-y-2">
                 {visibleTasks.map((t) => (
-                  <TaskItem
+                  <div
                     key={t.id}
-                    task={t}
-                    onToggle={onToggle}
-                    onDelete={onDelete}
-                    onEditTitle={onEditTitle}
-                  />
+                    className="flex items-center justify-between rounded-lg border px-3 py-2"
+                  >
+                    <button
+                      className="flex-1 text-left"
+                      onClick={() => toggle(t)}
+                      type="button"
+                    >
+                      <span
+                        className={
+                          t.completed
+                            ? "line-through text-muted-foreground"
+                            : ""
+                        }
+                      >
+                        {t.title}
+                      </span>
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggle(t)}
+                      >
+                        {t.completed ? "Undo" : "Done"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => remove(t)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
+
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={loadTasks}>
+                Refresh
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
