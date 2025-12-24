@@ -5,7 +5,7 @@ const TaskItemMemo = memo(TaskItem);
 
 export default function TaskList({ tasks, onToggle, onDelete, onEditTitle }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {tasks.map((task) => (
         <TaskItemMemo
           key={task.id}

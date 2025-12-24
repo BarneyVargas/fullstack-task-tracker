@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+
 import { ModeToggle } from "@/components/mode-toggle";
 import LoginCard from "./components/auth/LoginCard";
 import TaskList from "./components/tasks/TaskList";
@@ -203,8 +205,69 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  if (!session) return <LoginCard />;
+  return (
+    <Routes>
+      {/* Login page */}
+      <Route
+        path="/login"
+        element={session ? <Navigate to="/" replace /> : <LoginCard />}
+      />
 
+      {/* Main app - only accessible when logged in */}
+      <Route
+        path="/"
+        element={
+          session ? (
+            <MainApp
+              user={user}
+              tasks={tasks}
+              title={title}
+              setTitle={setTitle}
+              loadingTasks={loadingTasks}
+              visibleTasks={visibleTasks}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
+              addTask={addTask}
+              toggleTask={toggleTask}
+              deleteTask={deleteTask}
+              editTitle={editTitle}
+              onClearAll={onClearAll}
+              signOut={signOut}
+              msg={msg}
+            />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      {/* Catch-all: redirect everything else to the appropriate place */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function MainApp({
+  user,
+  tasks,
+  title,
+  setTitle,
+  loadingTasks,
+  visibleTasks,
+  statusFilter,
+  setStatusFilter,
+  sortOrder,
+  setSortOrder,
+  addTask,
+  toggleTask,
+  deleteTask,
+  editTitle,
+  onClearAll,
+  signOut,
+  msg,
+}) {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="absolute top-6 right-6 flex items-center gap-3">
