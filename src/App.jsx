@@ -98,7 +98,7 @@ export default function App() {
     if (sortOrder === "newest")
       list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     if (sortOrder === "oldest")
-      list.sort((a, b) => new Date(a.created_at) - new Date(a.created_at));
+      list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     if (sortOrder === "az") list.sort((a, b) => a.title.localeCompare(b.title));
     if (sortOrder === "za") list.sort((a, b) => b.title.localeCompare(a.title));
 
