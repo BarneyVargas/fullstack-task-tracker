@@ -10,6 +10,7 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
+import { Spinner } from "@/components/ui/spinner";
 
 import {
   AlertDialog,
@@ -86,7 +87,6 @@ export default function App() {
   useEffect(() => {
     if (user) loadTasks();
     else setTasks([]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const visibleTasks = useMemo(() => {
@@ -366,7 +366,10 @@ function MainApp({
           </div>
 
           {loadingTasks ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Spinner className="h-4 w-4" />
+              <span>Loading…</span>
+            </div>
           ) : visibleTasks.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {tasks.length === 0
