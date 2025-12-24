@@ -34,12 +34,8 @@ export default function LoginCard() {
       setLoading(true);
 
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
+        const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-
         setMsg("Account created. Check your email to confirm.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -56,7 +52,7 @@ export default function LoginCard() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-dvh flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>
@@ -130,11 +126,6 @@ export default function LoginCard() {
               ? "Create account"
               : "Login"}
           </Button>
-
-          {/* Optional: social login placeholder */}
-          {/* <Button variant="outline" className="w-full" disabled>
-            Login with Google
-          </Button> */}
         </CardFooter>
       </Card>
     </div>

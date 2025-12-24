@@ -5,10 +5,12 @@ import { ModeToggle } from "@/components/mode-toggle";
 import LoginCard from "./components/auth/LoginCard";
 import TaskList from "./components/tasks/TaskList";
 import { supabase } from "./lib/supabaseClient";
+
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+
 import {
   Select,
   SelectContent,
@@ -50,9 +53,7 @@ export default function App() {
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
-        setSession(newSession ?? null);
-      }
+      (_event, newSession) => setSession(newSession ?? null)
     );
 
     return () => {
@@ -85,6 +86,7 @@ export default function App() {
   useEffect(() => {
     if (user) loadTasks();
     else setTasks([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const visibleTasks = useMemo(() => {
@@ -96,7 +98,7 @@ export default function App() {
     if (sortOrder === "newest")
       list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     if (sortOrder === "oldest")
-      list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      list.sort((a, b) => new Date(a.created_at) - new Date(a.created_at));
     if (sortOrder === "az") list.sort((a, b) => a.title.localeCompare(b.title));
     if (sortOrder === "za") list.sort((a, b) => b.title.localeCompare(a.title));
 
@@ -188,8 +190,8 @@ export default function App() {
         .from("tasks")
         .delete()
         .eq("user_id", user.id);
-      if (error) throw error;
 
+      if (error) throw error;
       setTasks([]);
     } catch (e) {
       setMsg(e?.message || "Failed to clear tasks.");
@@ -197,55 +199,64 @@ export default function App() {
     }
   };
 
-  const onClearAll = async () => {
-    await clearAllTasks();
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <Routes>
-      {/* Login page */}
-      <Route
-        path="/login"
-        element={session ? <Navigate to="/" replace /> : <LoginCard />}
-      />
+    <div className="min-h-screen bg-background text-foreground">
+      <TopBar isAuthed={!!session} onLogout={signOut} />
 
-      {/* Main app - only accessible when logged in */}
-      <Route
-        path="/"
-        element={
-          session ? (
-            <MainApp
-              user={user}
-              tasks={tasks}
-              title={title}
-              setTitle={setTitle}
-              loadingTasks={loadingTasks}
-              visibleTasks={visibleTasks}
-              statusFilter={statusFilter}
-              setStatusFilter={setStatusFilter}
-              sortOrder={sortOrder}
-              setSortOrder={setSortOrder}
-              addTask={addTask}
-              toggleTask={toggleTask}
-              deleteTask={deleteTask}
-              editTitle={editTitle}
-              onClearAll={onClearAll}
-              signOut={signOut}
-              msg={msg}
-            />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
-      />
+      <Routes>
+        <Route
+          path="/login"
+          element={session ? <Navigate to="/" replace /> : <LoginCard />}
+        />
 
-      {/* Catch-all: redirect everything else to the appropriate place */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route
+          path="/"
+          element={
+            session ? (
+              <MainApp
+                user={user}
+                tasks={tasks}
+                title={title}
+                setTitle={setTitle}
+                loadingTasks={loadingTasks}
+                visibleTasks={visibleTasks}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                sortOrder={sortOrder}
+                setSortOrder={setSortOrder}
+                addTask={addTask}
+                toggleTask={toggleTask}
+                deleteTask={deleteTask}
+                editTitle={editTitle}
+                onClearAll={clearAllTasks}
+                msg={msg}
+              />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </div>
+  );
+}
+
+function TopBar({ isAuthed, onLogout }) {
+  return (
+    <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
+      {isAuthed && (
+        <Button variant="outline" size="sm" onClick={onLogout}>
+          Logout
+        </Button>
+      )}
+      <ModeToggle />
+    </div>
   );
 }
 
@@ -265,123 +276,115 @@ function MainApp({
   deleteTask,
   editTitle,
   onClearAll,
-  signOut,
   msg,
 }) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="absolute top-6 right-6 flex items-center gap-3">
-        <Button variant="outline" size="sm" onClick={signOut}>
-          Logout
-        </Button>
-        <ModeToggle />
-      </div>
-      <div className="mx-auto max-w-2xl p-6 pt-20">
-        <Card>
-          <CardHeader className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <div className="space-y-1">
-                <CardTitle className="text-xl">Task Tracker</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  Signed in as {user.email}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge className="rounded" variant="outline">
-                  Total: {tasks.length}
-                </Badge>
-                <Badge className="rounded" variant="outline">
-                  Open: {tasks.filter((t) => !t.completed).length}
-                </Badge>
-                <Badge className="rounded" variant="secondary">
-                  Done: {tasks.filter((t) => t.completed).length}
-                </Badge>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={addTask} className="flex gap-2">
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Add a new task..."
-              />
-              <Button type="submit">Add</Button>
-            </form>
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex gap-2">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="done">Done</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={sortOrder} onValueChange={setSortOrder}>
-                  <SelectTrigger className="w-45">
-                    <SelectValue placeholder="Sort" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="newest">Newest first</SelectItem>
-                    <SelectItem value="oldest">Oldest first</SelectItem>
-                    <SelectItem value="az">Title (A → Z)</SelectItem>
-                    <SelectItem value="za">Title (Z → A)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {tasks.length > 0 && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      Clear All
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Clear all tasks?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently remove {tasks.length} task
-                        {tasks.length === 1 ? "" : "s"}.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={onClearAll}>
-                        Yes, clear
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-
-            {loadingTasks ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
-            ) : visibleTasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {tasks.length === 0
-                  ? "No tasks yet. Add one above!"
-                  : "No tasks match your filter."}
+    <div className="mx-auto max-w-2xl p-6 pt-20">
+      <Card>
+        <CardHeader className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="space-y-1">
+              <CardTitle className="text-xl">Task Tracker</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Signed in as {user.email}
               </p>
-            ) : (
-              <TaskList
-                tasks={visibleTasks}
-                onToggle={toggleTask}
-                onDelete={deleteTask}
-                onEditTitle={editTitle}
-              />
-            )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="rounded" variant="outline">
+                Total: {tasks.length}
+              </Badge>
+              <Badge className="rounded" variant="outline">
+                Open: {tasks.filter((t) => !t.completed).length}
+              </Badge>
+              <Badge className="rounded" variant="secondary">
+                Done: {tasks.filter((t) => t.completed).length}
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
 
-            {msg && <p className="text-sm text-destructive">{msg}</p>}
-          </CardContent>
-        </Card>
-      </div>
+        <CardContent className="space-y-4">
+          <form onSubmit={addTask} className="flex gap-2">
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Add a new task..."
+            />
+            <Button type="submit">Add</Button>
+          </form>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="done">Done</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={sortOrder} onValueChange={setSortOrder}>
+                <SelectTrigger className="w-45">
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest first</SelectItem>
+                  <SelectItem value="oldest">Oldest first</SelectItem>
+                  <SelectItem value="az">Title (A → Z)</SelectItem>
+                  <SelectItem value="za">Title (Z → A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {tasks.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    Clear All
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear all tasks?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove {tasks.length} task
+                      {tasks.length === 1 ? "" : "s"}.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={onClearAll}>
+                      Yes, clear
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+
+          {loadingTasks ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : visibleTasks.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {tasks.length === 0
+                ? "No tasks yet. Add one above!"
+                : "No tasks match your filter."}
+            </p>
+          ) : (
+            <TaskList
+              tasks={visibleTasks}
+              onToggle={toggleTask}
+              onDelete={deleteTask}
+              onEditTitle={editTitle}
+            />
+          )}
+
+          {msg && <p className="text-sm text-destructive">{msg}</p>}
+        </CardContent>
+      </Card>
     </div>
   );
 }
