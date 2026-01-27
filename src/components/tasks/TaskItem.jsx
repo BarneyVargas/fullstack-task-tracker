@@ -3,6 +3,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Pencil, Trash2 } from "lucide-react";
+import { Save, Ban } from "lucide-react";
 
 export default function TaskItem({ task, onToggle, onDelete, onEditTitle }) {
   const [editing, setEditing] = useState(false);
@@ -66,27 +68,30 @@ export default function TaskItem({ task, onToggle, onDelete, onEditTitle }) {
         {editing ? (
           <>
             <Button size="sm" onClick={save}>
-              Save
+              <Save className="h-4 w-4" />
             </Button>
-            <Button size="sm" variant="outline" onClick={cancel}>
-              Cancel
+            <Button size="sm" variant="destructive" onClick={cancel}>
+              <Ban className="h-4 w-4" />
             </Button>
           </>
         ) : (
           <>
             <Button
-              size="sm"
+              size="icon"
               variant="secondary"
               onClick={() => setEditing(true)}
+              aria-label="Edit task"
             >
-              Edit
+              <Pencil className="h-4 w-4" />
             </Button>
+
             <Button
-              size="sm"
+              size="icon"
               variant="destructive"
               onClick={() => onDelete(task.id)}
+              aria-label="Delete task"
             >
-              Delete
+              <Trash2 className="h-4 w-4" />
             </Button>
           </>
         )}

@@ -54,7 +54,7 @@ export default function App() {
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => setSession(newSession ?? null)
+      (_event, newSession) => setSession(newSession ?? null),
     );
 
     return () => {
@@ -132,8 +132,8 @@ export default function App() {
     try {
       setTasks((prev) =>
         prev.map((t) =>
-          t.id === task.id ? { ...t, completed: !t.completed } : t
-        )
+          t.id === task.id ? { ...t, completed: !t.completed } : t,
+        ),
       );
 
       const { error } = await supabase
@@ -168,7 +168,7 @@ export default function App() {
     setMsg("");
     try {
       setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, title: trimmed } : t))
+        prev.map((t) => (t.id === taskId ? { ...t, title: trimmed } : t)),
       );
 
       const { error } = await supabase
@@ -342,7 +342,7 @@ function MainApp({
             {tasks.length > 0 && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="destructive" size="sm">
                     Clear All
                   </Button>
                 </AlertDialogTrigger>
