@@ -11,6 +11,10 @@ import { Input } from "./components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card";
 import { Badge } from "./components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
+
+import { Trash2Icon } from "lucide-react";
 
 import {
   AlertDialog,
@@ -20,6 +24,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
@@ -150,15 +155,48 @@ export default function App() {
 
   const deleteTask = async (taskId) => {
     setMsg("");
-    try {
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
 
-      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-      if (error) throw error;
-    } catch (e) {
-      setMsg(e?.message || "Failed to delete task.");
-      loadTasks();
-    }
+    const taskToDelete = tasks.find((t) => t.id === taskId);
+    if (!taskToDelete) return;
+
+    const index = tasks.findIndex((t) => t.id === taskId);
+
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+
+    let undone = false;
+
+    const timer = setTimeout(async () => {
+      if (undone) return;
+
+      try {
+        const { error } = await supabase
+          .from("tasks")
+          .delete()
+          .eq("id", taskId);
+        if (error) throw error;
+      } catch (e) {
+        setMsg(e?.message || "Failed to delete task.");
+        loadTasks();
+      }
+    }, 5000);
+
+    toast.success("Task has been deleted", {
+      position: "bottom-right",
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true;
+          clearTimeout(timer);
+
+          setTasks((prev) => {
+            const next = [...prev];
+            next.splice(index < 0 ? next.length : index, 0, taskToDelete);
+            return next;
+          });
+        },
+      },
+    });
   };
 
   const editTitle = async (taskId, newTitle) => {
@@ -205,6 +243,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Toaster />
       <TopBar isAuthed={!!session} onLogout={signOut} />
 
       <Routes>
@@ -289,7 +328,7 @@ function MainApp({
                 Signed in as {user.email}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge className="rounded" variant="outline">
                 Total: {tasks.length}
               </Badge>
@@ -316,7 +355,7 @@ function MainApp({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Filter" />
                 </SelectTrigger>
                 <SelectContent>
@@ -327,7 +366,7 @@ function MainApp({
               </Select>
 
               <Select value={sortOrder} onValueChange={setSortOrder}>
-                <SelectTrigger className="w-45">
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
@@ -346,18 +385,32 @@ function MainApp({
                     Clear All
                   </Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
+
+                <AlertDialogContent size="sm">
                   <AlertDialogHeader>
+                    <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20">
+                      <Trash2Icon />
+                    </AlertDialogMedia>
+
                     <AlertDialogTitle>Clear all tasks?</AlertDialogTitle>
+
                     <AlertDialogDescription>
-                      This will permanently remove {tasks.length} task
-                      {tasks.length === 1 ? "" : "s"}.
+                      This will permanently delete {tasks.length} task
+                      {tasks.length === 1 ? "" : "s"}. This action cannot be
+                      undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
+
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={onClearAll}>
-                      Yes, clear
+                    <AlertDialogCancel variant="outline">
+                      Cancel
+                    </AlertDialogCancel>
+
+                    <AlertDialogAction
+                      variant="destructive"
+                      onClick={onClearAll}
+                    >
+                      Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>

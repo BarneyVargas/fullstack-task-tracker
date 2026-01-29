@@ -3,17 +3,21 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2 } from "lucide-react";
-import { Save, Ban } from "lucide-react";
+import { Save, Ban, Pencil, Trash2, MoreHorizontal, Pen } from "lucide-react";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function TaskItem({ task, onToggle, onDelete, onEditTitle }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(task.title);
 
   useEffect(() => {
-    if (!editing) {
-      setDraft(task.title);
-    }
+    if (!editing) setDraft(task.title);
   }, [task.title, editing]);
 
   const save = async () => {
@@ -75,25 +79,26 @@ export default function TaskItem({ task, onToggle, onDelete, onEditTitle }) {
             </Button>
           </>
         ) : (
-          <>
-            <Button
-              size="icon"
-              variant="secondary"
-              onClick={() => setEditing(true)}
-              aria-label="Edit task"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="icon" variant="secondary" aria-label="Open menu">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
 
-            <Button
-              size="icon"
-              variant="destructive"
-              onClick={() => onDelete(task.id)}
-              aria-label="Delete task"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setEditing(true)}>
+                <Pencil /> Edit
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => onDelete(task.id)}
+              >
+                <Trash2 /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
     </div>
