@@ -41,7 +41,7 @@ export default function TaskItem({ task, onToggle, onDelete, onEditTitle }) {
         disabled={editing}
       />
 
-      <div className="flex-1 min-w-0 flex items-center">
+      <div className="flex-1 min-w-0 flex items-start">
         {editing ? (
           <Input
             value={draft}
@@ -55,15 +55,19 @@ export default function TaskItem({ task, onToggle, onDelete, onEditTitle }) {
             placeholder="Task title..."
           />
         ) : (
-          <div className="flex items-center gap-2 min-w-0 h-9">
+          <div className="flex flex-wrap items-center gap-2 min-w-0 w-full">
             <p
-              className={`truncate text-sm font-medium ${
+              className={`text-sm font-medium break-words whitespace-normal min-w-0 flex-1 ${
                 task.completed ? "line-through opacity-60" : ""
               }`}
             >
               {task.title}
             </p>
-            {task.completed && <Badge variant="secondary">Done</Badge>}
+            {task.completed && (
+              <Badge variant="secondary" className="shrink-0">
+                Done
+              </Badge>
+            )}
           </div>
         )}
       </div>
