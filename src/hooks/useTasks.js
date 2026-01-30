@@ -154,23 +154,34 @@ export function useTasks(user) {
     [loadTasks]
   );
 
-  const clearAll = useCallback(async () => {
-    if (!userId) return;
-    setError("");
+  const clearAll = useCallback(
+    async (filter = "all") => {
+      if (!userId) return;
+      setError("");
 
-    try {
-      const { error: clearError } = await supabase
-        .from("tasks")
-        .delete()
-        .eq("user_id", userId);
+      try {
+        let query = supabase.from("tasks").delete().eq("user_id", userId);
 
-      if (clearError) throw clearError;
-      setTasks([]);
-    } catch (e) {
-      setError(e?.message || "Failed to clear tasks.");
-      loadTasks();
-    }
-  }, [loadTasks, userId]);
+        if (filter === "open") query = query.eq("completed", false);
+        if (filter === "done") query = query.eq("completed", true);
+
+        const { error: clearError } = await query;
+
+        if (clearError) throw clearError;
+        setTasks((prev) => {
+          if (filter === "open")
+            return prev.filter((task) => task.completed);
+          if (filter === "done")
+            return prev.filter((task) => !task.completed);
+          return [];
+        });
+      } catch (e) {
+        setError(e?.message || "Failed to clear tasks.");
+        loadTasks();
+      }
+    },
+    [loadTasks, userId]
+  );
 
   return {
     tasks,

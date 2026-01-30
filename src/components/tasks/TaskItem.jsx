@@ -64,7 +64,7 @@ export default function TaskItem({ task, onToggle, onDelete, onEditTitle }) {
               {task.title}
             </p>
             {task.completed && (
-              <Badge variant="secondary" className="shrink-0">
+              <Badge variant="secondary" className="rounded shrink-0">
                 Done
               </Badge>
             )}

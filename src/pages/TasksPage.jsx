@@ -24,7 +24,7 @@ export default function TasksPage({
   onClearAll,
 }) {
   const [title, setTitle] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("open");
   const [sortOrder, setSortOrder] = useState("newest");
 
   const totalCount = tasks.length;
@@ -48,11 +48,16 @@ export default function TasksPage({
 
     return list;
   }, [tasks, statusFilter, sortOrder]);
+  const visibleCount = visibleTasks.length;
+  const canClearAll = visibleCount > 0;
 
   const handleAddTask = async (event) => {
     event.preventDefault();
     const created = await onAddTask(title);
     if (created) setTitle("");
+  };
+  const handleClearAll = () => {
+    onClearAll(statusFilter);
   };
 
   return (
@@ -78,7 +83,9 @@ export default function TasksPage({
             sortOrder={sortOrder}
             onSortChange={setSortOrder}
             totalCount={totalCount}
-            onClearAll={onClearAll}
+            visibleCount={visibleCount}
+            canClearAll={canClearAll}
+            onClearAll={handleClearAll}
           />
 
           {loading ? (

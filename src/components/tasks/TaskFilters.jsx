@@ -26,9 +26,15 @@ export default function TaskFilters({
   onStatusChange,
   sortOrder,
   onSortChange,
-  totalCount,
+  visibleCount,
+  canClearAll,
   onClearAll,
 }) {
+  const dialogTitle =
+    statusFilter === "all"
+      ? "Clear all tasks?"
+      : `Clear ${statusFilter} tasks?`;
+
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex gap-2">
@@ -56,7 +62,7 @@ export default function TaskFilters({
         </Select>
       </div>
 
-      {totalCount > 0 && (
+      {canClearAll && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="destructive" size="sm">
@@ -70,11 +76,11 @@ export default function TaskFilters({
                 <Trash2Icon />
               </AlertDialogMedia>
 
-              <AlertDialogTitle>Clear all tasks?</AlertDialogTitle>
+              <AlertDialogTitle>{dialogTitle}</AlertDialogTitle>
 
               <AlertDialogDescription>
-                This will permanently delete {totalCount} task
-                {totalCount === 1 ? "" : "s"}. This action cannot be undone.
+                This will permanently delete {visibleCount} task
+                {visibleCount === 1 ? "" : "s"}. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
 

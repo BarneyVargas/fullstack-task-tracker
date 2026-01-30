@@ -1,7 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function TaskHeader({ email, totalCount, openCount, doneCount }) {
+export default function TaskHeader({
+  email,
+  totalCount,
+  openCount,
+  doneCount,
+}) {
   return (
     <CardHeader className="space-y-2">
       <div className="flex items-center justify-between gap-3">
