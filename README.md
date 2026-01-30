@@ -2,7 +2,7 @@
 
 ## Overview
 
-A full-stack task management app built with React (Vite), Express.js, and Supabase. Features CRUD operations, dark mode, filtering, and motivational quotes via external API.
+A full-stack task management app built with React (Vite), Express.js, and Supabase. Features CRUD operations, dark mode, filtering.
 
 ## Technologies
 
@@ -18,9 +18,7 @@ A full-stack task management app built with React (Vite), Express.js, and Supaba
 2. Backend: `cd server`, `npm install`, add .env, `npm start`
 3. Frontend: `cd client`, `npm install`, `npm run dev`
 
-## Team
-
-Solo project.
+## SOLO Project
 
 ## Notes
 
