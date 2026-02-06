@@ -65,6 +65,7 @@ export default function TasksPage({
       <Card>
         <TaskHeader
           email={user.email}
+          username={user.user_metadata?.username}
           totalCount={totalCount}
           openCount={openCount}
           doneCount={doneCount}

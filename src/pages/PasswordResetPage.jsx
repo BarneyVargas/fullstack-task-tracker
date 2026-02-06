@@ -35,6 +35,9 @@ export default function PasswordResetPage() {
   const invalidResetEmail = normalizedMsg.includes(
     "unable to validate email address: invalid format"
   );
+  const missingNewPassword = normalizedMsg.includes(
+    "please enter and confirm your new password"
+  );
   const passwordTooShort =
     submitted && password.length > 0 && password.length < 6;
   const urlParams = useMemo(() => {
@@ -66,6 +69,13 @@ export default function PasswordResetPage() {
         setRecoveryMode(true);
       }
     });
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session) {
+        setRecoveryMode(true);
+      }
+    })();
 
     if (urlErrorCode === "otp_expired") {
       toast.error("This reset link has expired. Request a new one.");
@@ -224,7 +234,7 @@ export default function PasswordResetPage() {
                 {msg && !suppressPasswordMsg && (
                   <p
                     className={
-                      weakPassword
+                      weakPassword || missingNewPassword
                         ? "text-sm text-destructive"
                         : "text-sm text-muted-foreground"
                     }
