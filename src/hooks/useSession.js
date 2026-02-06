@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabaseClient";
 
 export function useSession() {
   const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
   const user = useMemo(() => session?.user ?? null, [session]);
 
   useEffect(() => {
@@ -10,12 +11,18 @@ export function useSession() {
 
     (async () => {
       const { data, error } = await supabase.auth.getSession();
-      if (!ignore) setSession(data?.session ?? null);
+      if (!ignore) {
+        setSession(data?.session ?? null);
+        setLoading(false);
+      }
       if (error) console.error(error);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => setSession(newSession ?? null)
+      (_event, newSession) => {
+        setSession(newSession ?? null);
+        setLoading(false);
+      }
     );
 
     return () => {
@@ -28,5 +35,5 @@ export function useSession() {
     await supabase.auth.signOut();
   };
 
-  return { session, user, signOut };
+  return { session, user, loading, signOut };
 }

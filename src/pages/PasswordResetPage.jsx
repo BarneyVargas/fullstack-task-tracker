@@ -1,0 +1,258 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
+
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Field } from "@/components/ui/field";
+
+export default function PasswordResetPage() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const normalizedMsg = msg.toLowerCase();
+  const weakPassword = normalizedMsg.includes(
+    "password should be at least 6 characters"
+  );
+  const missingResetEmail = normalizedMsg.includes("please enter your email");
+  const invalidResetEmail = normalizedMsg.includes(
+    "unable to validate email address: invalid format"
+  );
+  const passwordTooShort = submitted && password.length > 0 && password.length < 6;
+  const hasRecoveryHash = useMemo(
+    () => window.location.hash.includes("type=recovery"),
+    []
+  );
+
+  useEffect(() => {
+    if (hasRecoveryHash) setRecoveryMode(true);
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setRecoveryMode(true);
+      }
+    });
+
+    return () => {
+      sub.subscription.unsubscribe();
+    };
+  }, [hasRecoveryHash]);
+
+  const requestReset = async (e) => {
+    e.preventDefault();
+    setMsg("");
+
+    if (!email) {
+      setMsg("Please enter your email.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/password-reset`,
+      });
+      if (error) throw error;
+      setMsg("Check your email for the password reset link.");
+    } catch (err) {
+      setMsg(err.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updatePassword = async (e) => {
+    e.preventDefault();
+    setMsg("");
+    setSubmitted(true);
+
+    if (!password || !confirm) {
+      setMsg("Please enter and confirm your new password.");
+      return;
+    }
+    if (passwordTooShort) {
+      setMsg("Password should be at least 6 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      setMsg("Passwords do not match.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
+      await supabase.auth.signOut();
+      navigate("/login", { replace: true, state: { fromReset: true } });
+    } catch (err) {
+      setMsg(err.message || "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-dvh flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle>
+            {recoveryMode ? "Set a new password" : "Reset your password"}
+          </CardTitle>
+          <CardDescription>
+            {recoveryMode
+              ? "Enter a new password for your account"
+              : "We'll email you a secure reset link"}
+          </CardDescription>
+          <CardAction>
+            <Button variant="link" type="button" asChild>
+              <Link to="/login">Back to login</Link>
+            </Button>
+          </CardAction>
+        </CardHeader>
+
+        <CardContent>
+          {recoveryMode ? (
+            <form onSubmit={updatePassword}>
+              <div className="flex flex-col gap-6">
+                <Field
+                  invalid={
+                    (submitted && !password) ||
+                    passwordTooShort ||
+                    (submitted && password && confirm && password !== confirm) ||
+                    weakPassword
+                  }
+                >
+                  <Label htmlFor="new-password">New password</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    aria-invalid={
+                      (submitted && !password) ||
+                      passwordTooShort ||
+                      (submitted && password && confirm && password !== confirm) ||
+                      weakPassword ||
+                      undefined
+                    }
+                    required
+                  />
+                </Field>
+                <Field
+                  invalid={
+                    (submitted && !confirm) ||
+                    (submitted && password && confirm && password !== confirm) ||
+                    weakPassword ||
+                    passwordTooShort
+                  }
+                >
+                  <Label htmlFor="confirm-password">Confirm password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    aria-invalid={
+                      (submitted && !confirm) ||
+                      (submitted && password && confirm && password !== confirm) ||
+                      weakPassword ||
+                      passwordTooShort ||
+                      undefined
+                    }
+                    required
+                  />
+                </Field>
+                {passwordTooShort && (
+                  <p className="text-sm text-destructive">
+                    Password should be at least 6 characters.
+                  </p>
+                )}
+                {submitted && password && confirm && password !== confirm && (
+                  <p className="text-sm text-destructive">
+                    Passwords do not match.
+                  </p>
+                )}
+                {msg && (
+                  <p
+                    className={
+                      weakPassword
+                        ? "text-sm text-destructive"
+                        : "text-sm text-muted-foreground"
+                    }
+                  >
+                    {msg}
+                  </p>
+                )}
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={requestReset}>
+              <div className="flex flex-col gap-6">
+                <Field invalid={missingResetEmail || invalidResetEmail}>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="m@example.com"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    aria-invalid={
+                      missingResetEmail || invalidResetEmail || undefined
+                    }
+                    required
+                  />
+                </Field>
+                {msg && (
+                  <p
+                    className={
+                      missingResetEmail || invalidResetEmail
+                        ? "text-sm text-destructive"
+                        : "text-sm text-muted-foreground"
+                    }
+                  >
+                    {invalidResetEmail ? "Please enter a valid email address." : msg}
+                  </p>
+                )}
+              </div>
+            </form>
+          )}
+        </CardContent>
+
+        <CardFooter className="flex-col gap-2">
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loading}
+            onClick={recoveryMode ? updatePassword : requestReset}
+          >
+            {loading
+              ? "Please wait..."
+              : recoveryMode
+                ? "Update password"
+                : "Send reset link"}
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+}

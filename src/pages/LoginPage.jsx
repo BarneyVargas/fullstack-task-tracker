@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 
 import { Button } from "@/components/ui/button";
@@ -11,39 +12,44 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export default function LoginCard() {
-  const [mode, setMode] = useState("signin");
+const INVALID_LOGIN_MESSAGE = "Incorrect username or password";
+const MISSING_CREDENTIALS_MESSAGE = "Please enter an email and password.";
+
+export default function LoginPage() {
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+
+  const cameFromReset = Boolean(location.state?.fromReset);
+  const normalizedMsg = msg.toLowerCase();
+  const isMissingCredentials = normalizedMsg.includes(
+    "please enter an email and password"
+  );
+  const invalidCredentials = normalizedMsg.includes("invalid login credentials");
+  const loginInvalid = isMissingCredentials || invalidCredentials;
 
   const submit = async (e) => {
     e.preventDefault();
     setMsg("");
 
     if (!email || !password) {
-      setMsg("Please enter an email and password.");
+      setMsg(MISSING_CREDENTIALS_MESSAGE);
       return;
     }
 
     try {
       setLoading(true);
-
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setMsg("Account created. Check your email to confirm.");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-      }
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
     } catch (err) {
       setMsg(err.message || "Something went wrong.");
     } finally {
@@ -51,27 +57,23 @@ export default function LoginCard() {
     }
   };
 
+  const displayMessage = invalidCredentials ? INVALID_LOGIN_MESSAGE : msg;
+  const messageClass = loginInvalid
+    ? "text-sm text-destructive"
+    : "text-sm text-muted-foreground";
+  const resetMessageClass = "text-sm text-emerald-600";
+
   return (
     <div className="min-h-dvh flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>
-            {mode === "signup" ? "Create an account" : "Login to your account"}
-          </CardTitle>
-
+          <CardTitle>Login to your account</CardTitle>
           <CardDescription>
-            {mode === "signup"
-              ? "Enter your email below to create your account"
-              : "Enter your email below to login to your account"}
+            Enter your email below to login to your account
           </CardDescription>
-
           <CardAction>
-            <Button
-              variant="link"
-              type="button"
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            >
-              {mode === "signin" ? "Sign Up" : "Sign In"}
+            <Button variant="link" type="button" asChild>
+              <Link to="/signup">Sign Up</Link>
             </Button>
           </CardAction>
         </CardHeader>
@@ -79,7 +81,7 @@ export default function LoginCard() {
         <CardContent>
           <form onSubmit={submit}>
             <div className="flex flex-col gap-6">
-              <div className="grid gap-2">
+              <Field invalid={loginInvalid}>
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
@@ -88,27 +90,38 @@ export default function LoginCard() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="email"
+                  aria-invalid={loginInvalid || undefined}
                   required
                 />
-              </div>
+              </Field>
 
-              <div className="grid gap-2">
+              <Field invalid={loginInvalid}>
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
+                  <Link
+                    to="/password-reset"
+                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                  >
+                    Forgot your password?
+                  </Link>
                 </div>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={
-                    mode === "signup" ? "new-password" : "current-password"
-                  }
+                  autoComplete="current-password"
+                  aria-invalid={loginInvalid || undefined}
                   required
                 />
-              </div>
+              </Field>
 
-              {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
+              {cameFromReset && (
+                <p className={resetMessageClass}>
+                  Password updated. Please log in.
+                </p>
+              )}
+              {msg && <p className={messageClass}>{displayMessage}</p>}
             </div>
           </form>
         </CardContent>
@@ -120,11 +133,7 @@ export default function LoginCard() {
             disabled={loading}
             onClick={submit}
           >
-            {loading
-              ? "Please wait..."
-              : mode === "signup"
-              ? "Create account"
-              : "Login"}
+            {loading ? "Please wait..." : "Login"}
           </Button>
         </CardFooter>
       </Card>
