@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
 
 import { Button } from "@/components/ui/button";
@@ -65,7 +64,6 @@ export default function LoginPage() {
     : "text-sm text-muted-foreground";
   useEffect(() => {
     if (!cameFromReset) return;
-    toast.success("Password updated. Please log in.");
     navigate("/login", { replace: true });
   }, [cameFromReset, navigate]);
 

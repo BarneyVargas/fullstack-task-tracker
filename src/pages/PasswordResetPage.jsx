@@ -58,24 +58,22 @@ export default function PasswordResetPage() {
   const showPasswordMismatch =
     submitted && password && confirm && password !== confirm;
   const showPasswordTooShort = passwordTooShort || weakPassword;
-  const suppressPasswordMsg = showPasswordTooShort || showPasswordMismatch;
+  const showMissingNewPassword = missingNewPassword;
+  const suppressPasswordMsg =
+    showPasswordTooShort || showPasswordMismatch || showMissingNewPassword;
   const suppressEmailMsg = missingResetEmail || invalidResetEmail;
 
   useEffect(() => {
-    if (recoveryType === "recovery") setRecoveryMode(true);
+    if (recoveryType === "recovery") {
+      setRecoveryMode(true);
+      window.sessionStorage.setItem("recoveryMode", "true");
+    }
 
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
         setRecoveryMode(true);
       }
     });
-
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data?.session) {
-        setRecoveryMode(true);
-      }
-    })();
 
     if (urlErrorCode === "otp_expired") {
       toast.error("This reset link has expired. Request a new one.");
@@ -91,7 +89,7 @@ export default function PasswordResetPage() {
     return () => {
       sub.subscription.unsubscribe();
     };
-  }, [recoveryType, urlError, urlErrorDescription]);
+  }, [recoveryType, urlError, urlErrorDescription, urlErrorCode]);
 
   const requestReset = async (e) => {
     e.preventDefault();
@@ -166,10 +164,10 @@ export default function PasswordResetPage() {
               type="button"
               onClick={async () => {
                 await supabase.auth.signOut();
+                navigate("/login", { replace: true });
               }}
-              asChild
             >
-              <Link to="/login">Back to login</Link>
+              Back to login
             </Button>
           </CardAction>
         </CardHeader>
@@ -183,7 +181,8 @@ export default function PasswordResetPage() {
                     (submitted && !password) ||
                     passwordTooShort ||
                     (submitted && password && confirm && password !== confirm) ||
-                    weakPassword
+                    weakPassword ||
+                    showMissingNewPassword
                   }
                 >
                   <Label htmlFor="new-password">New password</Label>
@@ -198,6 +197,7 @@ export default function PasswordResetPage() {
                       passwordTooShort ||
                       (submitted && password && confirm && password !== confirm) ||
                       weakPassword ||
+                      showMissingNewPassword ||
                       undefined
                     }
                     required
@@ -208,7 +208,8 @@ export default function PasswordResetPage() {
                     (submitted && !confirm) ||
                     (submitted && password && confirm && password !== confirm) ||
                     weakPassword ||
-                    passwordTooShort
+                    passwordTooShort ||
+                    showMissingNewPassword
                   }
                 >
                   <Label htmlFor="confirm-password">Confirm password</Label>
@@ -223,11 +224,17 @@ export default function PasswordResetPage() {
                       (submitted && password && confirm && password !== confirm) ||
                       weakPassword ||
                       passwordTooShort ||
+                      showMissingNewPassword ||
                       undefined
                     }
                     required
                   />
                 </Field>
+                {showMissingNewPassword && (
+                  <p className="text-sm text-destructive">
+                    Please enter and confirm your new password.
+                  </p>
+                )}
                 {showPasswordTooShort && (
                   <p className="text-sm text-destructive">
                     Password should be at least 6 characters.

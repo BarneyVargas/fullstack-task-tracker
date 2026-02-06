@@ -11,7 +11,13 @@ import { useTasks } from "@/hooks/useTasks";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function App() {
-  const { session, user, loading: sessionLoading, signOut } = useSession();
+  const {
+    session,
+    user,
+    loading: sessionLoading,
+    recoveryMode,
+    signOut,
+  } = useSession();
   const {
     tasks,
     loading,
@@ -40,7 +46,7 @@ export default function App() {
         <Route
           path="/login"
           element={
-            <RequireAnon session={session}>
+            <RequireAnon session={session} recoveryMode={recoveryMode}>
               <LoginPage />
             </RequireAnon>
           }
@@ -48,7 +54,7 @@ export default function App() {
         <Route
           path="/signup"
           element={
-            <RequireAnon session={session}>
+            <RequireAnon session={session} recoveryMode={recoveryMode}>
               <SignupPage />
             </RequireAnon>
           }
@@ -57,7 +63,7 @@ export default function App() {
         <Route
           path="/"
           element={
-            <RequireAuth session={session}>
+            <RequireAuth session={session} recoveryMode={recoveryMode}>
               <TasksPage
                 user={user}
                 tasks={tasks}
@@ -78,8 +84,12 @@ export default function App() {
   );
 }
 
-function RequireAuth({ session, children }) {
+function RequireAuth({ session, recoveryMode, children }) {
   const location = useLocation();
+
+  if (recoveryMode) {
+    return <Navigate to="/password-reset" replace />;
+  }
 
   if (!session) {
     return <Navigate to="/login" replace state={{ from: location }} />;
@@ -88,9 +98,13 @@ function RequireAuth({ session, children }) {
   return children;
 }
 
-function RequireAnon({ session, children }) {
+function RequireAnon({ session, recoveryMode, children }) {
   const location = useLocation();
   const from = location.state?.from?.pathname || "/";
+
+  if (recoveryMode) {
+    return <Navigate to="/password-reset" replace />;
+  }
 
   if (session) {
     return <Navigate to={from} replace />;

@@ -4,6 +4,10 @@ import { supabase } from "@/lib/supabaseClient";
 export function useSession() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [recoveryMode, setRecoveryMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.sessionStorage.getItem("recoveryMode") === "true";
+  });
   const user = useMemo(() => session?.user ?? null, [session]);
 
   useEffect(() => {
@@ -19,9 +23,19 @@ export function useSession() {
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (event, newSession) => {
         setSession(newSession ?? null);
         setLoading(false);
+
+        if (event === "PASSWORD_RECOVERY") {
+          setRecoveryMode(true);
+          window.sessionStorage.setItem("recoveryMode", "true");
+        }
+
+        if (!newSession) {
+          setRecoveryMode(false);
+          window.sessionStorage.removeItem("recoveryMode");
+        }
       }
     );
 
@@ -33,7 +47,9 @@ export function useSession() {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setRecoveryMode(false);
+    window.sessionStorage.removeItem("recoveryMode");
   };
 
-  return { session, user, loading, signOut };
+  return { session, user, loading, recoveryMode, signOut };
 }
