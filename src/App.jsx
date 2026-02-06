@@ -6,6 +6,7 @@ import LoginPage from "@/pages/LoginPage";
 import TasksPage from "@/pages/TasksPage";
 import PasswordResetPage from "@/pages/PasswordResetPage";
 import SignupPage from "@/pages/SignupPage";
+import ProfilePage from "@/pages/ProfilePage";
 import { useSession } from "@/hooks/useSession";
 import { useTasks } from "@/hooks/useTasks";
 import { Spinner } from "@/components/ui/spinner";
@@ -17,6 +18,7 @@ export default function App() {
     profile,
     loading: sessionLoading,
     recoveryMode,
+    refreshProfile,
     signOut,
   } = useSession();
   const {
@@ -61,6 +63,18 @@ export default function App() {
           }
         />
         <Route path="/password-reset" element={<PasswordResetPage />} />
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth session={session} recoveryMode={recoveryMode}>
+              <ProfilePage
+                user={user}
+                profile={profile}
+                onProfileUpdated={refreshProfile}
+              />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/"
           element={

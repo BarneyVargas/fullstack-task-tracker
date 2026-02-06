@@ -48,30 +48,34 @@ export function useSession() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!user) {
+  const refreshProfile = async (targetUser = user) => {
+    if (!targetUser) {
       setProfile(null);
       return;
     }
 
-    let ignore = false;
-    (async () => {
-      setProfileLoading(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", user.id)
-        .single();
+    setProfileLoading(true);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", targetUser.id)
+      .single();
 
-      if (!ignore) {
-        if (error) {
-          console.error(error);
-          setProfile(null);
-        } else {
-          setProfile(data);
-        }
-        setProfileLoading(false);
-      }
+    if (error) {
+      console.error(error);
+      setProfile(null);
+    } else {
+      setProfile(data);
+    }
+    setProfileLoading(false);
+  };
+
+  useEffect(() => {
+    let ignore = false;
+
+    (async () => {
+      if (ignore) return;
+      await refreshProfile();
     })();
 
     return () => {
@@ -92,6 +96,7 @@ export function useSession() {
     loading,
     profileLoading,
     recoveryMode,
+    refreshProfile,
     signOut,
   };
 }
