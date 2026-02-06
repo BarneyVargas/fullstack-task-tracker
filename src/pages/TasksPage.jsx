@@ -4,6 +4,7 @@ import TaskList from "@/components/tasks/TaskList";
 import TaskFilters from "@/components/tasks/TaskFilters";
 import TaskForm from "@/components/tasks/TaskForm";
 import TaskHeader from "@/components/tasks/TaskHeader";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -67,9 +68,6 @@ export default function TasksPage({
         <TaskHeader
           email={user.email}
           username={profile?.username ?? user.user_metadata?.username}
-          totalCount={totalCount}
-          openCount={openCount}
-          doneCount={doneCount}
         />
 
         <CardContent className="space-y-4">
@@ -89,6 +87,18 @@ export default function TasksPage({
             canClearAll={canClearAll}
             onClearAll={handleClearAll}
           />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="rounded" variant="outline">
+              Total: {totalCount}
+            </Badge>
+            <Badge className="rounded" variant="outline">
+              Open: {openCount}
+            </Badge>
+            <Badge className="rounded" variant="secondary">
+              Done: {doneCount}
+            </Badge>
+          </div>
 
           {loading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

@@ -1,14 +1,7 @@
 import { Link } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 
-export default function TaskHeader({
-  email,
-  username,
-  totalCount,
-  openCount,
-  doneCount,
-}) {
+export default function TaskHeader({ email, username }) {
   const displayName = username || email;
   const displayMeta = username && email ? `(${email})` : null;
 
@@ -17,12 +10,20 @@ export default function TaskHeader({
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-1">
           <CardTitle className="text-xl">Task Tracker</CardTitle>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span
-              className="truncate"
+              className="min-w-0 flex items-center gap-1"
               title={`${displayName} ${displayMeta ?? ""}`.trim()}
             >
-              Signed in as {displayName} {displayMeta}
+              <span className="shrink-0">Signed in as</span>
+              <span className="truncate font-medium text-foreground/80">
+                {displayName}
+              </span>
+              {displayMeta && (
+                <span className="max-w-[10rem] truncate text-muted-foreground/80 sm:max-w-none">
+                  {displayMeta}
+                </span>
+              )}
             </span>
             <span aria-hidden="true" className="shrink-0">
               •
@@ -31,17 +32,6 @@ export default function TaskHeader({
               Edit profile
             </Link>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge className="rounded" variant="outline">
-            Total: {totalCount}
-          </Badge>
-          <Badge className="rounded" variant="outline">
-            Open: {openCount}
-          </Badge>
-          <Badge className="rounded" variant="secondary">
-            Done: {doneCount}
-          </Badge>
         </div>
       </div>
     </CardHeader>
