@@ -16,6 +16,7 @@ export default function App() {
     session,
     user,
     profile,
+    profileLoading,
     loading: sessionLoading,
     recoveryMode,
     refreshProfile,

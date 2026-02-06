@@ -17,12 +17,17 @@ export default function TaskHeader({
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-1">
           <CardTitle className="text-xl">Task Tracker</CardTitle>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+            <span
+              className="truncate"
+              title={`${displayName} ${displayMeta ?? ""}`.trim()}
+            >
               Signed in as {displayName} {displayMeta}
             </span>
-            <span aria-hidden="true">•</span>
-            <Link to="/profile" className="hover:underline">
+            <span aria-hidden="true" className="shrink-0">
+              •
+            </span>
+            <Link to="/profile" className="shrink-0 hover:underline">
               Edit profile
             </Link>
           </div>

@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
+const PROFILE_STORAGE_KEY = "profile";
+
 export function useSession() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const stored = window.sessionStorage.getItem(PROFILE_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  });
   const [profileLoading, setProfileLoading] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -66,6 +72,7 @@ export function useSession() {
       setProfile(null);
     } else {
       setProfile(data);
+      window.sessionStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(data));
     }
     setProfileLoading(false);
   };
@@ -87,6 +94,7 @@ export function useSession() {
     await supabase.auth.signOut();
     setRecoveryMode(false);
     window.sessionStorage.removeItem("recoveryMode");
+    window.sessionStorage.removeItem(PROFILE_STORAGE_KEY);
   };
 
   return {
