@@ -161,7 +161,14 @@ export default function PasswordResetPage() {
               : "We'll email you a secure reset link"}
           </CardDescription>
           <CardAction>
-            <Button variant="link" type="button" asChild>
+            <Button
+              variant="link"
+              type="button"
+              onClick={async () => {
+                await supabase.auth.signOut();
+              }}
+              asChild
+            >
               <Link to="/login">Back to login</Link>
             </Button>
           </CardAction>
