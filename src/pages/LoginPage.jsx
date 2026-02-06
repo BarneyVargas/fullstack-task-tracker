@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ const MISSING_CREDENTIALS_MESSAGE = "Please enter an email and password.";
 
 export default function LoginPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -61,7 +63,11 @@ export default function LoginPage() {
   const messageClass = loginInvalid
     ? "text-sm text-destructive"
     : "text-sm text-muted-foreground";
-  const resetMessageClass = "text-sm text-emerald-600";
+  useEffect(() => {
+    if (!cameFromReset) return;
+    toast.success("Password updated. Please log in.");
+    navigate("/login", { replace: true });
+  }, [cameFromReset, navigate]);
 
   return (
     <div className="min-h-dvh flex items-center justify-center bg-background p-4">
@@ -116,11 +122,6 @@ export default function LoginPage() {
                 />
               </Field>
 
-              {cameFromReset && (
-                <p className={resetMessageClass}>
-                  Password updated. Please log in.
-                </p>
-              )}
               {msg && <p className={messageClass}>{displayMessage}</p>}
             </div>
           </form>

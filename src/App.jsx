@@ -35,7 +35,7 @@ export default function App() {
 
   return (
     <AppLayout session={session} onSignOut={signOut}>
-      <Toaster />
+      <Toaster position="top-center" />
       <Routes>
         <Route
           path="/login"

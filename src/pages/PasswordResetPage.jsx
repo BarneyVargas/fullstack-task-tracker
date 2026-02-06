@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
 
 import { Button } from "@/components/ui/button";
@@ -34,14 +35,31 @@ export default function PasswordResetPage() {
   const invalidResetEmail = normalizedMsg.includes(
     "unable to validate email address: invalid format"
   );
-  const passwordTooShort = submitted && password.length > 0 && password.length < 6;
-  const hasRecoveryHash = useMemo(
-    () => window.location.hash.includes("type=recovery"),
-    []
-  );
+  const passwordTooShort =
+    submitted && password.length > 0 && password.length < 6;
+  const urlParams = useMemo(() => {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const searchParams = new URLSearchParams(window.location.search);
+    return { hashParams, searchParams };
+  }, []);
+  const recoveryType =
+    urlParams.hashParams.get("type") || urlParams.searchParams.get("type");
+  const urlError =
+    urlParams.hashParams.get("error") || urlParams.searchParams.get("error");
+  const urlErrorCode =
+    urlParams.hashParams.get("error_code") ||
+    urlParams.searchParams.get("error_code");
+  const urlErrorDescription =
+    urlParams.hashParams.get("error_description") ||
+    urlParams.searchParams.get("error_description");
+  const showPasswordMismatch =
+    submitted && password && confirm && password !== confirm;
+  const showPasswordTooShort = passwordTooShort || weakPassword;
+  const suppressPasswordMsg = showPasswordTooShort || showPasswordMismatch;
+  const suppressEmailMsg = missingResetEmail || invalidResetEmail;
 
   useEffect(() => {
-    if (hasRecoveryHash) setRecoveryMode(true);
+    if (recoveryType === "recovery") setRecoveryMode(true);
 
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
@@ -49,10 +67,21 @@ export default function PasswordResetPage() {
       }
     });
 
+    if (urlErrorCode === "otp_expired") {
+      toast.error("This reset link has expired. Request a new one.");
+    } else if (urlError && urlErrorDescription) {
+      const cleaned = urlErrorDescription.replace(/\+/g, " ");
+      setMsg(cleaned);
+    }
+
+    if (urlError || urlErrorDescription || urlErrorCode) {
+      window.history.replaceState({}, "", "/password-reset");
+    }
+
     return () => {
       sub.subscription.unsubscribe();
     };
-  }, [hasRecoveryHash]);
+  }, [recoveryType, urlError, urlErrorDescription]);
 
   const requestReset = async (e) => {
     e.preventDefault();
@@ -100,6 +129,7 @@ export default function PasswordResetPage() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       await supabase.auth.signOut();
+      toast.success("Password updated. Please log in.");
       navigate("/login", { replace: true, state: { fromReset: true } });
     } catch (err) {
       setMsg(err.message || "Something went wrong.");
@@ -181,17 +211,17 @@ export default function PasswordResetPage() {
                     required
                   />
                 </Field>
-                {passwordTooShort && (
+                {showPasswordTooShort && (
                   <p className="text-sm text-destructive">
                     Password should be at least 6 characters.
                   </p>
                 )}
-                {submitted && password && confirm && password !== confirm && (
+                {showPasswordMismatch && (
                   <p className="text-sm text-destructive">
                     Passwords do not match.
                   </p>
                 )}
-                {msg && (
+                {msg && !suppressPasswordMsg && (
                   <p
                     className={
                       weakPassword
@@ -222,7 +252,7 @@ export default function PasswordResetPage() {
                     required
                   />
                 </Field>
-                {msg && (
+                {msg && !suppressEmailMsg && (
                   <p
                     className={
                       missingResetEmail || invalidResetEmail
