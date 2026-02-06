@@ -4,6 +4,8 @@ import { supabase } from "@/lib/supabaseClient";
 export function useSession() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.sessionStorage.getItem("recoveryMode") === "true";
@@ -33,6 +35,7 @@ export function useSession() {
         }
 
         if (!newSession) {
+          setProfile(null);
           setRecoveryMode(false);
           window.sessionStorage.removeItem("recoveryMode");
         }
@@ -45,11 +48,50 @@ export function useSession() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user) {
+      setProfile(null);
+      return;
+    }
+
+    let ignore = false;
+    (async () => {
+      setProfileLoading(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .single();
+
+      if (!ignore) {
+        if (error) {
+          console.error(error);
+          setProfile(null);
+        } else {
+          setProfile(data);
+        }
+        setProfileLoading(false);
+      }
+    })();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setRecoveryMode(false);
     window.sessionStorage.removeItem("recoveryMode");
   };
 
-  return { session, user, loading, recoveryMode, signOut };
+  return {
+    session,
+    user,
+    profile,
+    loading,
+    profileLoading,
+    recoveryMode,
+    signOut,
+  };
 }

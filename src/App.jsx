@@ -14,6 +14,7 @@ export default function App() {
   const {
     session,
     user,
+    profile,
     loading: sessionLoading,
     recoveryMode,
     signOut,
@@ -66,6 +67,7 @@ export default function App() {
             <RequireAuth session={session} recoveryMode={recoveryMode}>
               <TasksPage
                 user={user}
+                profile={profile}
                 tasks={tasks}
                 loading={loading}
                 error={error}

@@ -14,6 +14,7 @@ const EMPTY_FILTER_MESSAGE = {
 
 export default function TasksPage({
   user,
+  profile,
   tasks,
   loading,
   error,
@@ -65,7 +66,7 @@ export default function TasksPage({
       <Card>
         <TaskHeader
           email={user.email}
-          username={user.user_metadata?.username}
+          username={profile?.username ?? user.user_metadata?.username}
           totalCount={totalCount}
           openCount={openCount}
           doneCount={doneCount}
